@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interval Logger</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 1rem;
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+    textarea {
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+  <h2>Interval Session Logger</h2>
+  <form id="intervalForm">
+    <label for="date">Date:</label>
+    <input type="date" id="date" required />
+
+    <label for="location">Location:</label>
+    <input type="text" id="location" placeholder="e.g. Local track" required />
+
+    <label for="description">Session Description:</label>
+    <input type="text" id="description" placeholder="e.g. 5 x 5min threshold" required />
+
+    <label for="intervals">Intervals (one per line, format <code>mm:ss.s, distance</code>):</label>
+    <textarea id="intervals" rows="6" placeholder="e.g.&#10;5:00,1200&#10;5:10,1180&#10;4:58.3,1220" required></textarea>
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <script>
+    const endpoint = "https://script.google.com/macros/s/AKfycbyTiy8xhdHGwexA0PuX7wYWtV2IDuda2U5gHqra7v8bibQ3VMFxT_VQddOPVZLF9GLy/exec";
+
+    function parseTimeToSeconds(timeStr) {
+      const parts = timeStr.split(":");
+      if (parts.length === 1) return parseFloat(parts[0]);
+      const minutes = parseFloat(parts[0]);
+      const seconds = parseFloat(parts[1]);
+      return (minutes * 60) + seconds;
+    }
+
+    document.getElementById("intervalForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const raw = document.getElementById("intervals").value.trim().split("\n");
+      const intervals = raw.map((line, i) => {
+        const [durationStr, distanceStr] = line.split(",").map(x => x.trim());
+        const duration = parseTimeToSeconds(durationStr);
+        const distance = parseFloat(distanceStr);
+        if (isNaN(duration) || isNaN(distance)) {
+          throw new Error(`Invalid entry on line ${i + 1}: "${line}"`);
+        }
+        return { duration, distance };
+      });
+
+      const payload = {
+        date: document.getElementById("date").value,
+        sessionDescription: document.getElementById("description").value,
+        location: document.getElementById("location").value,
+        intervals: intervals
+      };
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" }
+        });
+
+        if (!response.ok) throw new Error("Network response was not ok");
+
+        alert("Session logged successfully!");
+        document.getElementById("intervalForm").reset();
+      } catch (err) {
+        console.error(err);
+        alert("Error logging session. Please check input format or connection.");
+      }
+    });
+  </script>
+</body>
+</html>
